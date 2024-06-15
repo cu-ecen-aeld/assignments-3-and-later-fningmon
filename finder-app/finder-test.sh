@@ -54,7 +54,14 @@ fi
 
 for i in $( seq 1 $NUMFILES)
 do
-	./writer.sh "$WRITEDIR/${username}$i.txt" "$WRITESTR"
+	if [ $assignment != 'assignment1' ]
+	then
+		echo "using writer c utility"
+		./writer "$WRITEDIR/${username}$i.txt" "$WRITESTR"
+	else
+		echo "using writer.sh utility"
+		./writer.sh "$WRITEDIR/${username}$i.txt" "$WRITESTR"
+	fi
 done
 
 OUTPUTSTRING=$(./finder.sh "$WRITEDIR" "$WRITESTR")
