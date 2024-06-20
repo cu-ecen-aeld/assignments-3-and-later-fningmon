@@ -1,4 +1,11 @@
 #include "systemcalls.h"
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <errno.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 /**
  * @param cmd the command to execute with system()
@@ -16,7 +23,11 @@ bool do_system(const char *cmd)
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
-
+    int result = -1;
+    
+    result = system(cmd);
+    if (result != 0)
+	    return false;
     return true;
 }
 
@@ -59,8 +70,56 @@ bool do_exec(int count, ...)
  *
 */
 
-    va_end(args);
+    pid_t pid = 0;
+    int status = 0;
+    
+    fflush(stdout);
+    pid = fork();
+    
+    if (pid < 0 )
+      return false;
+    
+    else if (pid == 0)
+    {	    
+      printf("Child process execv command PID %d, %d \n", pid, getpid());
+      //execv(command[0],&command[1]);
+      execv(command[0],command);
+      printf ("ececv failed, should not reach here exit(1)\n");
+      exit(1);
+    }
+    /*else 
+    {
+      printf("parent process waiting for child process %d,  %d\n", pid, getpid());  	    
+      int child_pid = waitpid(pid,&status,0);
+      if (WIFEXITED(status)) {
+        printf("Child process (PID: %d) exited with status: %d\n", child_pid, WEXITSTATUS(status));
+        if( WEXITSTATUS(status)!= 0)
+        {
+          printf("Returning false as exit status is not 0");		
+	  return false;
+	}
+      } else {
+        printf("Child process (PID: %d) terminated abnormally\n", child_pid);
+	return false;
+      }
+    }*/
+    
+    while (wait(&status) > 0);  // Wait for any child process 
 
+    if( WEXITSTATUS(status)!= 0)
+    {
+      printf("Returning false as exit status is not 0 \n");
+      return false;
+    }
+
+    if (errno != ECHILD) {
+       perror("wait failed");
+       return false;
+    }
+
+
+    va_end(args);
+    printf("pid %d %d returning true \n", pid, getpid());
     return true;
 }
 
@@ -93,6 +152,53 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *
 */
 
+    int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    if(fd < 0)
+    {
+      perror("open failed");
+      return false;
+    }
+
+    pid_t pid = 0;
+    int status = 0;
+
+    fflush(stdout);
+    pid = fork();
+
+    if (pid < 0 )
+      return false;
+
+    else if (pid == 0)
+    {
+      printf("Child process execv command PID %d, %d \n", pid, getpid());
+      if ( dup2(fd, STDOUT_FILENO) < 0)
+      {
+        printf ("redirection failed\n");
+	close(fd);
+	exit(1);
+      }
+      close(fd); 
+      execv(command[0],command);
+      printf ("ececv failed, should not reach here exit(1)\n");
+      exit(1);
+    }
+
+    while (wait(&status) > 0);  // Wait for any child process 
+
+    if( WEXITSTATUS(status)!= 0)
+    {
+      printf("Returning false as exit status is not 0 \n");
+      return false;
+    }
+
+    if (errno != ECHILD) {
+       perror("wait failed");
+       return false;
+    }
+
+    
+
+//    execv(command[0],command);
     va_end(args);
 
     return true;
